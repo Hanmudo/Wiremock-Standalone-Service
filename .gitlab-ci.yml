@@ -1,0 +1,56 @@
+image: maven:3.8.6-eclipse-temurin-17
+
+default:
+  tags:
+    - default
+
+cache:
+  paths:
+    - .m2/repository
+  key: $CI_COMMIT_REF_SLUG
+
+variables: # Default variables for each job
+  CD_MAVEN_OPTS: "-s settings.xml -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+stages: # Pipeline is sequence of stages (in which jobs are run)
+  - dependencycheck
+  - building
+  - qualitycheck
+  - deployment
+
+owasp dependency check:
+  stage: dependencycheck
+  script:
+    - ./mvnw ${CD_MAVEN_OPTS} dependency-check:check
+  artifacts:
+    paths:
+      - target/dependency-check-report.html
+    expire_in: 2 weeks
+
+build project:
+  stage: building
+  script:
+    - ./mvnw ${CD_MAVEN_OPTS} clean package
+  artifacts:
+    paths:
+      - target/*.jar
+  only:
+    - develop
+
+sonarqube check:
+  stage: qualitycheck
+  script:
+    - ./mvnw ${CD_MAVEN_OPTS} verify sonar:sonar -Dsonar.login=${SONAR_TOKEN}
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - "**/target/surefire-reports/TEST-*.xml"
+
+deploy:
+  stage: deployment
+  script:
+    - helm registry login -u ${HARBOR_USERNAME} ${HARBOR_REGISTRY}
+    - helm pull oci://${HARBOR_REGISTRY}/${PROJECT_NAME}/${CHART_NAME} --version ${CHART_VERSION} --untar
+    - helm upgrade -i -n ${NAMESPACE} --values=./helm-values/${CHART_VALUE}.yaml --set app=${APP_NAME} --set docker_name=$DOCKER_NAME --set appVersion=$DOCKER_TAG --set database_user=${POSTGRES_USER} --set database_password=${POSTGRES_PASSWORD} ${RELEASE} ./${RELEASE}
+

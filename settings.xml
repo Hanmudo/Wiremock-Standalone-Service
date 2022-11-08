@@ -1,0 +1,25 @@
+<settings>
+  <pluginGroups>
+    <pluginGroup>org.sonarsource.scanner.maven</pluginGroup>
+  </pluginGroups>
+  <servers>
+    <server>
+      <id>sonar</id>
+      <username>${env.SONAR_USER}</username>
+      <password>${env.SONAR_PASSWORD}</password>
+    </server>
+  </servers>
+  <profiles>
+    <profile>
+      <id>sonar</id>
+      <properties>
+        <sonar.host.url>
+          ${env.SONAR_HOST_URL}
+        </sonar.host.url>
+      </properties>
+    </profile>
+  </profiles>
+  <activeProfiles>
+    <activeProfile>sonar</activeProfile>
+  </activeProfiles>
+</settings>
